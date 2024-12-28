@@ -1,0 +1,66 @@
+<div class="calculator-container">
+    <form id="mortgageForm" class="calculator-form">
+        <div class="form-group">
+            <label for="propertyPrice">Property Price ($)</label>
+            <input type="number" id="propertyPrice" name="propertyPrice" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="downPayment">Down Payment ($)</label>
+            <input type="number" id="downPayment" name="downPayment" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="annualInterestRate">Annual Interest Rate (%)</label>
+            <input type="number" id="annualInterestRate" name="annualInterestRate" step="0.01" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="amortizationPeriod">Amortization Period (years)</label>
+            <input type="number" id="amortizationPeriod" name="amortizationPeriod" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="paymentSchedule">Payment Schedule</label>
+            <select id="paymentSchedule" name="paymentSchedule" required>
+                <option value="monthly">Monthly</option>
+                <option value="biweekly">Bi-weekly</option>
+                <option value="accelerated-biweekly">Accelerated Bi-weekly</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="isFirstTimeBuyer" name="isFirstTimeBuyer">
+                First Time Buyer
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="isNewConstruction" name="isNewConstruction">
+                New Construction
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label for="downPaymentSource">Down Payment Source</label>
+            <select id="downPaymentSource" name="downPaymentSource" required>
+                <option value="traditional">Traditional Savings</option>
+                <option value="non-traditional">Non-Traditional Savings</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="employmentType">Employment Type</label>
+            <select id="employmentType" name="employmentType" required>
+                <option value="regular">Regular Employment</option>
+                <option value="self-employed-non-verified">Self Employed (Non-verified)</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="calculate-btn">Calculate Mortgage</button>
+    </form>
+    
+    <div id="results" class="results-container"></div>
+</div>
