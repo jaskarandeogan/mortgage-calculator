@@ -2,7 +2,7 @@
 import request from 'supertest';
 import express from 'express';
 import mortgageRoutes from '../../routes/mortgageRoutes';
-import { mortgageCalculator } from '../../controllers/mortgageController';
+import { calculateMortgageController } from '../../controllers/mortgageController';
 import app from '../../app';
 
 jest.mock('../../controllers/mortgageController', () => ({
@@ -22,7 +22,7 @@ describe('POST /api/mortgage/calculate', () => {
   beforeEach(() => {
     app.use(express.json());
     app.use('/api/mortgage', mortgageRoutes);
-    (mortgageCalculator as jest.Mock).mockClear();
+    (calculateMortgageController as jest.Mock).mockClear();
   });
 
   test('should calculate mortgage details', async () => {
@@ -55,10 +55,10 @@ describe('POST /api/mortgage/calculate', () => {
     });
 
     // Verify that controller was called
-    expect(mortgageCalculator).toHaveBeenCalledTimes(1);
+    expect(calculateMortgageController).toHaveBeenCalledTimes(1);
     
     // Only verify that the first argument (req) contains our request body
-    const [[firstArg]] = (mortgageCalculator as jest.Mock).mock.calls;
+    const [[firstArg]] = (calculateMortgageController as jest.Mock).mock.calls;
     expect(firstArg.body).toEqual(requestBody);
   });
 });

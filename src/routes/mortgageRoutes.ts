@@ -1,12 +1,11 @@
 // src/routes/mortgageRoutes.ts
 import { Router, RequestHandler } from 'express';
-import { mortgageCalculator } from '../controllers/mortgageController';
-import { validateDownPayment } from '../types/mortgage.schema';
+import { calculateMortgageController } from '../controllers/mortgageController';
+import { validateDownPayment } from '../controllers/mortgageController';
+import { mortgageSchema, downpaymentSchema } from '../types/mortgage.schema';
+import { ZodError } from 'zod';
 
 const router = Router();
-
-// Main mortgage calculation endpoint
-router.post('/calculate', mortgageCalculator);
 
 // Get CMHC rates and rules
 const getCMHCInfo: RequestHandler = (_, res): void => {
@@ -69,29 +68,59 @@ const getSampleCalculation: RequestHandler = (_, res): void => {
 // Validate down payment
 const validateDownPaymentRoute: RequestHandler = (req, res): void => {
   try {
-    const { propertyPrice, downPayment, employmentType = 'regular' } = req.body;
+    const { propertyPrice, downPayment, employmentType } = req.body;
 
     if (!propertyPrice || !downPayment) {
       throw new Error('Property price and down payment are required');
     }
 
-    validateDownPayment(propertyPrice, downPayment, employmentType);
+    const validatedData = downpaymentSchema.parse({ propertyPrice, downPayment, employmentType });
+
+    const isValid = validateDownPayment(validatedData.propertyPrice, validatedData.downPayment, validatedData.employmentType);
     const downPaymentPercentage = (downPayment / propertyPrice) * 100;
 
     void res.json({
-      isValid: true,
+      isValid: isValid,
       propertyPrice,
       downPayment,
       downPaymentPercentage,
       employmentType
     });
   } catch (error) {
-    void res.status(400).json({
-      isValid: false,
-      error: error instanceof Error ? error.message : 'Invalid input'
-    });
+    if (error instanceof ZodError) {
+      void res.status(400).json({
+        errors: error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    } else {
+      void res.status(500).json({ error: 'Internal server error' });
+    }
   }
 };
+
+const calculateMortgageRoute: RequestHandler = (req, res): void => {
+  try {
+    // Validate request body
+    const validatedData = mortgageSchema.parse(req.body);
+
+    const result = calculateMortgageController(validatedData);
+
+    void res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      void res.status(400).json({
+        errors: error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    } else {
+      void res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+}
 
 // Simple health check endpoint
 const healthCheck: RequestHandler = (_, res): void => {
@@ -104,6 +133,7 @@ const healthCheck: RequestHandler = (_, res): void => {
 router.get('/health', healthCheck);
 router.get('/cmhc-info', getCMHCInfo);
 router.get('/sample', getSampleCalculation);
+router.post('/calculate', calculateMortgageRoute);
 router.post('/validate-down-payment', validateDownPaymentRoute);
 
 export default router;

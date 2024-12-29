@@ -1,5 +1,5 @@
 // src/services/mortgageService.ts
-import { MortgageRequest, MortgageResponse,DownPaymentSource,EmploymentType, PaymentSchedule } from '../types/mortgage.types';
+import { MortgageRequest, MortgageResponse, DownPaymentSource, EmploymentType, PaymentSchedule } from '../types/mortgage.types';
 
 const getPaymentsPerYear = (schedule: PaymentSchedule): number => {
   switch (schedule) {
