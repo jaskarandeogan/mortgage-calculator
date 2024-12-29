@@ -1,64 +1,165 @@
-// src/tests/controllers/mortgageController.test.ts
-import request from 'supertest';
-import express from 'express';
-import mortgageRoutes from '../../routes/mortgageRoutes';
-import { calculateMortgageController } from '../../controllers/mortgageController';
-import app from '../../app';
+import { 
+  calculateMortgage, 
+  calculateMortgageController, 
+  validateDownPayment 
+} from '../../controllers/mortgageController';
+import { DownPaymentSource, EmploymentType, PaymentSchedule } from '../../types/mortgage.types';
 
-jest.mock('../../controllers/mortgageController', () => ({
-  mortgageCalculator: jest.fn((_, res) => {
-    res.json({
-      paymentAmount: 2500.50,
-      cmhcInsurance: 15000,
-      totalMortgage: 450000,
-      mortgageBeforeCMHC: 400000,
-      downPaymentPercentage: 20,
-      cmhcPremiumRate: 0
+describe('Mortgage Controller', () => {
+
+  // Validate down payment based on property price and employment type
+
+  describe('validateDownPayment', () => {
+    it('should validate regular employment with sufficient down payment', () => {
+      expect(validateDownPayment(500000, 25000, 'regular')).toBe(true);
     });
-  })
-}));
 
-describe('POST /api/mortgage/calculate', () => {
-  beforeEach(() => {
-    app.use(express.json());
-    app.use('/api/mortgage', mortgageRoutes);
-    (calculateMortgageController as jest.Mock).mockClear();
+    it('should throw error for self-employed with insufficient down payment', () => {
+      expect(() => 
+        validateDownPayment(500000, 45000, 'self-employed-non-verified')
+      ).toThrow('Self-employed with non-verified income requires minimum 10% down payment');
+    });
+
+    it('should throw error for high-value property with insufficient down payment', () => {
+      expect(() => 
+        validateDownPayment(1200000, 180000, 'regular')
+      ).toThrow('Properties over $1,000,000 require minimum 20% down payment');
+    });
+
+    it('should throw error for mid-range property with insufficient tiered down payment', () => {
+      expect(() => 
+        validateDownPayment(600000, 30000, 'regular')
+      ).toThrow('For homes over $500,000, minimum down payment is 5% of first $500,000 and 10% of remaining amount');
+    });
+
+    it('should throw error for low down payment percentage', () => {
+      expect(() => 
+        validateDownPayment(400000, 15000, 'regular')
+      ).toThrow('Minimum down payment must be 5% of property price');
+    });
   });
 
-  test('should calculate mortgage details', async () => {
-    const requestBody = {
+  // Calculate mortgage payment details based on input parameters
+  describe('calculateMortgage', () => {
+    const validMortgageRequest = {
       propertyPrice: 500000,
       downPayment: 100000,
-      annualInterestRate: 5,
+      annualInterestRate: 5.99,
       amortizationPeriod: 25,
-      paymentSchedule: 'monthly',
+      paymentSchedule: 'monthly' as PaymentSchedule,
       isFirstTimeBuyer: true,
       isNewConstruction: false,
-      downPaymentSource: 'traditional',
-      employmentType: 'employed'
+      downPaymentSource: 'traditional' as DownPaymentSource,
+      employmentType: 'regular' as EmploymentType
     };
 
-    const response = await request(app)
-      .post('/api/mortgage/calculate')
-      .send(requestBody)
-      .expect('Content-Type', /json/)
-      .expect(200);
-
-    // Verify response structure
-    expect(response.body).toEqual({
-      paymentAmount: expect.any(Number),
-      cmhcInsurance: expect.any(Number),
-      totalMortgage: expect.any(Number),
-      mortgageBeforeCMHC: expect.any(Number),
-      downPaymentPercentage: expect.any(Number),
-      cmhcPremiumRate: expect.any(Number)
+    it('should calculate mortgage with monthly payments', () => {
+      const result = calculateMortgage(validMortgageRequest);
+      
+      expect(result).toEqual({
+        paymentAmount: expect.any(Number),
+        cmhcInsurance: expect.any(Number),
+        totalMortgage: expect.any(Number),
+        mortgageBeforeCMHC: 400000,
+        downPaymentPercentage: 20,
+        cmhcPremiumRate: 0
+      });
     });
 
-    // Verify that controller was called
-    expect(calculateMortgageController).toHaveBeenCalledTimes(1);
-    
-    // Only verify that the first argument (req) contains our request body
-    const [[firstArg]] = (calculateMortgageController as jest.Mock).mock.calls;
-    expect(firstArg.body).toEqual(requestBody);
+    it('should calculate CMHC insurance for low down payment', () => {
+      const lowDownPaymentRequest = {
+        ...validMortgageRequest,
+        downPayment: 50000 // 10% down payment
+      };
+
+      const result = calculateMortgage(lowDownPaymentRequest);
+      expect(result.cmhcPremiumRate).toBeGreaterThan(0);
+      expect(result.cmhcInsurance).toBeGreaterThan(0);
+    });
+
+    it('should calculate accelerated bi-weekly payments', () => {
+      const biweeklyRequest = {
+        ...validMortgageRequest,
+        paymentSchedule: 'accelerated-biweekly' as PaymentSchedule
+      };
+
+      const monthlyResult = calculateMortgage(validMortgageRequest);
+      const biweeklyResult = calculateMortgage(biweeklyRequest);
+
+      // Bi-weekly payment should be roughly half of monthly
+      expect(biweeklyResult.paymentAmount).toBeLessThan(monthlyResult.paymentAmount);
+    });
+
+    it('should handle extended amortization for first-time buyers', () => {
+      const extendedRequest = {
+        ...validMortgageRequest,
+        amortizationPeriod: 30,
+        downPayment: 50000 // To trigger CMHC insurance
+      };
+
+      const standardRequest = {
+        ...validMortgageRequest,
+        amortizationPeriod: 25,
+        downPayment: 50000
+      };
+
+      const extendedResult = calculateMortgage(extendedRequest);
+      const standardResult = calculateMortgage(standardRequest);
+
+      // Extended amortization should have higher CMHC premium
+      expect(extendedResult.cmhcPremiumRate).toBeGreaterThan(standardResult.cmhcPremiumRate);
+    });
+
+    it('should handle non-traditional down payment source', () => {
+      const nonTraditionalRequest = {
+        ...validMortgageRequest,
+        downPayment: 45000,
+        downPaymentSource: 'non-traditional' as DownPaymentSource
+      };
+
+      const result = calculateMortgage(nonTraditionalRequest);
+      expect(result.cmhcPremiumRate).toBe(0.0450); // 4.50% for non-traditional under 10%
+    });
+
+    it('should handle self-employed calculation', () => {
+      const selfEmployedRequest = {
+        ...validMortgageRequest,
+        downPayment: 75000, // 15% down payment
+        employmentType: 'self-employed-non-verified' as EmploymentType
+      };
+
+      const result = calculateMortgage(selfEmployedRequest);
+      expect(result.cmhcPremiumRate).toBe(0.0290); // 2.90% for self-employed with 15%+ down
+    });
+  });
+
+  describe('calculateMortgageController', () => {
+    it('should return success response with calculation result', () => {
+      const validInput = {
+        propertyPrice: 500000,
+        downPayment: 100000,
+        annualInterestRate: 5.99,
+        amortizationPeriod: 25,
+        paymentSchedule: 'monthly' as PaymentSchedule,
+        isFirstTimeBuyer: true,
+        isNewConstruction: false,
+        downPaymentSource: 'traditional' as DownPaymentSource,
+        employmentType: 'regular' as EmploymentType
+      };
+
+      const result = calculateMortgageController(validInput);
+      
+      expect(result).toEqual({
+        status: 'success',
+        data: expect.objectContaining({
+          paymentAmount: expect.any(Number),
+          cmhcInsurance: expect.any(Number),
+          totalMortgage: expect.any(Number),
+          mortgageBeforeCMHC: expect.any(Number),
+          downPaymentPercentage: expect.any(Number),
+          cmhcPremiumRate: expect.any(Number)
+        })
+      });
+    });
   });
 });

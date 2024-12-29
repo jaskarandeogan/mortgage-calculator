@@ -1,7 +1,6 @@
 // src/routes/mortgageRoutes.ts
 import { Router, RequestHandler } from 'express';
-import { calculateMortgageController } from '../controllers/mortgageController';
-import { validateDownPayment } from '../controllers/mortgageController';
+import { calculateMortgageController, validateDownPayment} from '../controllers/mortgageController';
 import { mortgageSchema, downpaymentSchema } from '../types/mortgage.schema';
 import { ZodError } from 'zod';
 

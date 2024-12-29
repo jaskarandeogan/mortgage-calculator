@@ -49,8 +49,6 @@ export const downpaymentSchema = z.object({
   employmentType: z.enum(['regular', 'self-employed-non-verified'] as const).default('regular')
 });
 
-
-
 export const calculateCMHCPremiumRate = (
   downPaymentPercent: number,
   amortizationPeriod: number,
@@ -98,3 +96,4 @@ export const calculateCMHCPremiumRate = (
 };
 
 export type MortgageInput = z.infer<typeof mortgageSchema>;
+export type DownPaymentInput = z.infer<typeof downpaymentSchema>;
