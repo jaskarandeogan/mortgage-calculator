@@ -113,11 +113,19 @@ git clone https://github.com/jaskarandeogan/mortgage-calculator
 # Install dependencies
 npm install
 
+# create .env file as in example
+
 # Start the server
 npm start
 
 # Run in development mode
 npm run dev
+```
+
+## ENVs Example
+```
+PORT=8080
+NODE_ENV=development
 ```
 
 ## Testing
@@ -141,7 +149,7 @@ The API handles various error cases including:
 - Property value over maximum limit
 - Employment type restrictions
 
-Tech Stack
+## Tech Stack
 
 - EJS (simple UI for API testing)
 - TypeScript
