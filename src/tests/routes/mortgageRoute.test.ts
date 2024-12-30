@@ -178,24 +178,81 @@ describe('Mortgage Routes', () => {
             });
         });
 
-        test('should handle insufficient downpayment for property over $15,000,000', async () => {
+        test('should handle insufficient downpayment for property over $1,500,000', async () => {
+            (calculateMortgageController as jest.Mock).mockImplementation(() => {
+                throw new Error('For properties over $1,500,000, minimum down payment is 20%');
+            });
+         
             const testPayload = {
                 ...validPayload,
                 propertyPrice: 1600000,
                 downPayment: 200000,
                 employmentType: 'regular'
             };
-            
-            console.log('Test payload:', testPayload);
-            
+         
             const response = await request(app)
                 .post('/api/mortgage/calculate')
                 .send(testPayload)
                 .expect('Content-Type', /json/)
                 .expect(400);
+         
+            expect(response.status).toBe(400);
+            expect(response.body).toEqual({
+                errors: 'For properties over $1,500,000, minimum down payment is 20%'
+            });
+            expect(calculateMortgageController).toHaveBeenCalledWith(testPayload);
+         });
+
+        test('should reject over 25-year amortization for regular buyers', async () => {
+            (calculateMortgageController as jest.Mock).mockImplementation(() => {
+                throw new Error('Maximum amortization period is 25 years, unless you are a first-time home buyer or purchasing a newly-constructed home');
+            });
         
-            console.log('Response body:', response.body);
-            console.log('Response status:', response.status);
+            const response = await request(app)
+                .post('/api/mortgage/calculate')
+                .send({
+                    ...validPayload,
+                    amortizationPeriod: 30,
+                    isFirstTimeBuyer: false,
+                    isNewConstruction: false
+                })
+                .expect(400);
+        
+            expect(response.status).toBe(400);
+            expect(response.body).toEqual({
+                errors: 'Maximum amortization period is 25 years, unless you are a first-time home buyer or purchasing a newly-constructed home'
+            });
+            expect(calculateMortgageController).toHaveBeenCalled();
         });
+
+        test('should allow 30-year amortization when either first-time buyer OR new construction', async () => {
+            (calculateMortgageController as jest.Mock).mockReturnValue({
+                status: 'success',
+                data: {
+                    paymentAmount: 2876.25,
+                    cmhcInsurance: 18000,
+                    totalMortgage: 468000,
+                    mortgageBeforeCMHC: 450000,
+                    downPaymentPercentage: 10,
+                    cmhcPremiumRate: 0.04
+                }
+            });
+
+            const response = await request(app)
+                .post('/api/mortgage/calculate')
+                .send({
+                    ...validPayload,
+                    propertyPrice: 160000,
+                    downPayment: 20000,
+                    amortizationPeriod: 30,
+                    isFirstTimeBuyer: true,
+                    isNewConstruction: false
+                })
+                .expect(200);
+
+            expect(response.status).toBe(200);
+            expect(calculateMortgageController).toHaveBeenCalled();
+        });
+
     });
 });

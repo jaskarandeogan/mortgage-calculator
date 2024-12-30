@@ -68,11 +68,12 @@ const calculateMortgageRoute: RequestHandler = async (req, res) => {
   try {
     const validatedData = mortgageSchema.parse(req.body);
 
-    const result = calculateMortgageController(validatedData);
+    const result = await calculateMortgageController(validatedData);
     
-    if (!result) {
+    if (result.status === 'error') {
       res.status(400).json({
-        errors: 'Error calculating mortgage'
+        status: 'error',
+        errors: result.message
       });
       return;
     }
