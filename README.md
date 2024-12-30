@@ -94,12 +94,16 @@ Example Response:
 
 ```
 {
-    "paymentAmount": 2876.25,
-    "cmhcInsurance": 18000,
-    "totalMortgage": 468000,
-    "mortgageBeforeCMHC": 450000,
-    "downPaymentPercentage": 10,
-    "cmhcPremiumRate": 0.04
+    "status": "success",
+    "data": {
+        "paymentAmount": 2986.4,
+        "cmhcInsurance": 13950,
+        "totalMortgage": 463950,
+        "mortgageBeforeCMHC": 450000,
+        "downPaymentPercentage": 10,
+        "cmhcPremiumRate": 0.031
+    },
+    "message": "Mortgage calculated successfully"
 }
 ```
 
