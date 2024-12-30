@@ -143,8 +143,12 @@ The API handles various error cases including:
 
 Tech Stack
 
-TypeScript
-Express.js
-Jest
-Supertest
+- EJS (simple UI for API testing)
+- TypeScript
+- Express.js
+- Jest
+- Supertest
+
+## References
+- [Ratehub.ca](https://www.ratehub.ca/cmhc-insurance-british-columbia)
 
