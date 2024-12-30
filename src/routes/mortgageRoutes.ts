@@ -1,12 +1,10 @@
 // src/routes/mortgageRoutes.ts
 import { Router, RequestHandler } from 'express';
-import { mortgageCalculator } from '../controllers/mortgageController';
-import { validateDownPayment } from '../types/mortgage.schema';
+import { calculateMortgageController } from '../controllers/mortgageController';
+import { mortgageSchema } from '../types/mortgage.schema';
+import { ZodError } from 'zod';
 
 const router = Router();
-
-// Main mortgage calculation endpoint
-router.post('/calculate', mortgageCalculator);
 
 // Get CMHC rates and rules
 const getCMHCInfo: RequestHandler = (_, res): void => {
@@ -66,33 +64,39 @@ const getSampleCalculation: RequestHandler = (_, res): void => {
   });
 };
 
-// Validate down payment
-const validateDownPaymentRoute: RequestHandler = (req, res): void => {
+const calculateMortgageRoute: RequestHandler = async (req, res) => {
   try {
-    const { propertyPrice, downPayment, employmentType = 'regular' } = req.body;
+    const validatedData = mortgageSchema.parse(req.body);
 
-    if (!propertyPrice || !downPayment) {
-      throw new Error('Property price and down payment are required');
+    const result = calculateMortgageController(validatedData);
+    
+    if (!result) {
+      res.status(400).json({
+        errors: 'Error calculating mortgage'
+      });
+      return;
     }
-
-    validateDownPayment(propertyPrice, downPayment, employmentType);
-    const downPaymentPercentage = (downPayment / propertyPrice) * 100;
-
-    void res.json({
-      isValid: true,
-      propertyPrice,
-      downPayment,
-      downPaymentPercentage,
-      employmentType
-    });
+    
+    res.status(200).json(result);
   } catch (error) {
-    void res.status(400).json({
-      isValid: false,
-      error: error instanceof Error ? error.message : 'Invalid input'
-    });
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        errors: error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    } else if (error instanceof Error) {
+      res.status(400).json({
+        errors: error.message
+      });
+    } else {
+      res.status(500).json({
+        errors: 'Internal server error'
+      });
+    }
   }
 };
-
 // Simple health check endpoint
 const healthCheck: RequestHandler = (_, res): void => {
   void res.json({
@@ -102,8 +106,8 @@ const healthCheck: RequestHandler = (_, res): void => {
 };
 
 router.get('/health', healthCheck);
-router.get('/cmhc-info', getCMHCInfo);
 router.get('/sample', getSampleCalculation);
-router.post('/validate-down-payment', validateDownPaymentRoute);
+router.get('/cmhc-info', getCMHCInfo);
+router.post('/calculate', calculateMortgageRoute);
 
 export default router;
