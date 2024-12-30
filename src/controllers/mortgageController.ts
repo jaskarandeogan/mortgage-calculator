@@ -9,6 +9,10 @@ export const calculateMortgageController = (validatedData: MortgageInput) => {
   if (validatedData.propertyPrice > 1500000 && downPaymentPercent < 20) {
     throw new Error('For properties over $1,500,000, minimum down payment is 20%');
   }
+  
+  if (validatedData.propertyPrice < validatedData.downPayment) {
+    throw new Error('Down payment cannot exceed property price');
+  }
 
   if (downPaymentPercent < 10 && validatedData.employmentType === 'self-employed-non-verified') {
     throw new Error('Self-employed with non-verified income requires minimum 10% down payment');

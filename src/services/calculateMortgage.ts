@@ -4,7 +4,7 @@ import { calculateCMHCPremiumRate } from './calculateCMHCPremiumRate';
 const getPaymentsPerYear = (schedule: PaymentSchedule): number => {
   switch (schedule) {
     case 'monthly': return 12;
-    case 'biweekly': 24;
+    case 'biweekly': return 24;
     case 'accelerated-biweekly': return 26;
     default: throw new Error('Invalid payment schedule');
   }
@@ -37,7 +37,7 @@ const calculatePaymentAmount = (
 };
 
 export const calculateMortgage = (data: MortgageRequest): MortgageResponse => {
-    const downPaymentPercentage = (data.downPayment / data.propertyPrice) * 100;
+    const downPaymentPercentage = Number(((data.downPayment / data.propertyPrice) * 100).toFixed(3));
     const mortgageBeforeCMHC = data.propertyPrice - data.downPayment;
 
     const cmhcPremiumRate = calculateCMHCPremiumRate(
@@ -52,7 +52,7 @@ export const calculateMortgage = (data: MortgageRequest): MortgageResponse => {
         }
     );
 
-    const cmhcInsurance = mortgageBeforeCMHC * cmhcPremiumRate;
+    const cmhcInsurance = Number((mortgageBeforeCMHC * cmhcPremiumRate).toFixed(2));
     const totalMortgage = mortgageBeforeCMHC + cmhcInsurance;
 
     const paymentAmount = calculatePaymentAmount(
