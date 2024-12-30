@@ -16,18 +16,21 @@ app.set('layout', 'layouts/main');
 // Middleware
 app.use(cors());
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// APIs
 app.use('/api/mortgage', mortgageRoutes);
-app.get('/mortgage/calculator', (req, res) => {
+
+// Pages
+app.get('/mortgage/calculator', (_, res) => {
     res.render('mortgage/calculator', {
         title: 'Mortgage Calculator',
         scripts: ['/js/mortgage-calculator.js']
     });
 });
 
-app.get('/', (req, res) => {
+app.get('/', (_, res) => {
     res.render('home/home', {
         title: 'Home'
     });

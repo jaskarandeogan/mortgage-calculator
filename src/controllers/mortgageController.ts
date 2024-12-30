@@ -1,35 +1,45 @@
 import { MortgageInput } from '../types/mortgage.schema';
 import { calculateMortgage } from '../services/calculateMortgage';
+import { getMortgageValidationRules } from '../services/validationRules';
 
-
-export const calculateMortgageController = (validatedData: MortgageInput) => {
-  const downPaymentPercent = (validatedData.downPayment / validatedData.propertyPrice) * 100;
-
-  // Check high-value properties first
-  if (validatedData.propertyPrice > 1500000 && downPaymentPercent < 20) {
-    throw new Error('For properties over $1,500,000, minimum down payment is 20%');
+export const calculateMinimumDownPayment = (propertyPrice: number): number => {
+  if (propertyPrice <= 500000) {
+    return propertyPrice * 0.05;
   }
+  
+  const firstTierDownPayment = 500000 * 0.05;  // 5% of 500k
+  const remainingAmount = propertyPrice - 500000;
+  const secondTierDownPayment = remainingAmount * 0.10;  // 10% of remaining
 
-  if (downPaymentPercent < 10 && validatedData.employmentType === 'self-employed-non-verified') {
-    throw new Error('Self-employed with non-verified income requires minimum 10% down payment');
-  } else if (validatedData.propertyPrice > 500000) {
-    const firstTierDownPayment = 500000 * 0.05;
-    const secondTierDownPayment = (validatedData.propertyPrice - 500000) * 0.10;
-    const minimumDownPayment = firstTierDownPayment + secondTierDownPayment;
-    if (validatedData.downPayment < minimumDownPayment) {
-      throw new Error(
-        'For homes over $500,000, minimum down payment is 5% of first $500,000 and 10% of remaining amount'
-      );
-    }
-  } else if (downPaymentPercent < 5) {
-    throw new Error('Minimum down payment must be 5% of property price');
+  return firstTierDownPayment + secondTierDownPayment;
+};
+
+export const calculateMortgageController = async (validatedData: MortgageInput):Promise<{
+  status: 'success' | 'error';
+  data?: {
+    paymentAmount: number;
+    cmhcInsurance: number;
+    totalMortgage: number;
+    mortgageBeforeCMHC: number;
+    downPaymentPercentage: number;
+    cmhcPremiumRate: number;
+  };
+  message?: string;
+}> => {
+  const downPaymentPercent = (validatedData.downPayment / validatedData.propertyPrice) * 100;
+  const minimumDownPayment = calculateMinimumDownPayment(validatedData.propertyPrice);
+
+  const validationRules = getMortgageValidationRules(validatedData, downPaymentPercent, minimumDownPayment);
+  const failedRule = validationRules.find(rule => rule.condition);
+  
+  if (failedRule) {
+    return {
+      status: 'error',
+      message: failedRule.message
+    };
   }
 
   const result = calculateMortgage(validatedData);
-
-  if (!result) {
-    throw new Error('Error calculating mortgage');
-  }
 
   return {
     status: 'success',
@@ -40,7 +50,8 @@ export const calculateMortgageController = (validatedData: MortgageInput) => {
       mortgageBeforeCMHC: result.mortgageBeforeCMHC,
       downPaymentPercentage: result.downPaymentPercentage,
       cmhcPremiumRate: result.cmhcPremiumRate
-    }
+    },
+    message: 'Mortgage calculated successfully'
   };
 };
 
