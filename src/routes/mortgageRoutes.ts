@@ -32,8 +32,8 @@ const getCMHCInfo: RequestHandler = (_, res): void => {
       maxPropertyValue: 1500000,
       minDownPaymentRules: {
         upTo500k: "5% of purchase price",
-        over500kTo1M: "5% of first $500,000 + 10% of remaining",
-        over1M: "20% of purchase price"
+        over500kTo1500k: "5% of first $500,000 + 10% of remaining",
+        over1500k: "20% of purchase price"
       },
       maxAmortization: {
         regular: 25,
