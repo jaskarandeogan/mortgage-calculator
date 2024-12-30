@@ -30,14 +30,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 if (!response.ok) {
-                    console.log(data);
                     displayError(data.errors);
                     return;
                 }
 
-                displayResults(data);
+                displayResults(data.data);
             } catch (error) {
-                console.log(error);
                 displayError(error.message);
             }
         });
@@ -77,7 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
         function displayError(errors) {
             const resultsDiv = document.getElementById('results');
 
-            if(!Array.isArray(errors)) errors = [errors];
+            if(Array.isArray(errors)) {
+                console.log(errors);
+            }
+
+            if(Array.isArray(errors)) {
+                errors = errors.map(err => {
+                    return `<div>${err.message}</div>`;
+                });
+            }else {
+                errors = [errors];
+            }
 
             resultsDiv.innerHTML = `
             <div class="error-message">

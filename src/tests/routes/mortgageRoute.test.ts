@@ -1,7 +1,7 @@
 import request from 'supertest';
 import express, { Express } from 'express';
 import mortgageRoutes from '../../routes/mortgageRoutes';
-import { calculateMortgageController, validateDownPayment } from '../../controllers/mortgageController';
+import { calculateMortgageController } from '../../controllers/mortgageController';
 
 jest.mock('../../controllers/mortgageController');
 
@@ -13,24 +13,6 @@ describe('Mortgage Routes', () => {
         app.use(express.json());
         app.use('/api/mortgage', mortgageRoutes);
         (calculateMortgageController as jest.Mock).mockReset();
-        (validateDownPayment as jest.Mock).mockReset();
-    });
-
-    describe('GET /api/mortgage/health', () => {
-        test('should return health check status', async () => {
-            const mockDate = new Date('2024-01-01');
-            jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
-
-            const response = await request(app)
-                .get('/api/mortgage/health')
-                .expect('Content-Type', /json/)
-                .expect(200);
-
-            expect(response.body).toEqual({
-                status: 'ok',
-                timestamp: mockDate.toISOString()
-            });
-        });
     });
 
     describe('GET /api/mortgage/cmhc-info', () => {
@@ -65,80 +47,6 @@ describe('Mortgage Routes', () => {
                     minDownPaymentRules: expect.any(Object),
                     maxAmortization: expect.any(Object)
                 })
-            });
-        });
-    });
-
-    describe('POST /validate-down-payment', () => {
-        it('should validate a valid down payment', async () => {
-            (validateDownPayment as jest.Mock).mockReturnValue(true);
-
-            const requestBody = {
-                propertyPrice: 500000,
-                downPayment: 50000,
-                employmentType: 'regular'
-            };
-
-            const response = await request(app)
-                .post('/api/mortgage/validate-down-payment')
-                .send(requestBody)
-                .expect('Content-Type', /json/)
-                .expect(200);
-
-            expect(response.body).toEqual({
-                isValid: true,
-                propertyPrice: 500000,
-                downPayment: 50000,
-                downPaymentPercentage: 10,
-                employmentType: 'regular'
-            });
-        });
-
-        it('should handle missing required fields', async () => {
-            const response = await request(app)
-                .post('/api/mortgage/validate-down-payment')
-                .send({ propertyPrice: 500000 })
-                .expect('Content-Type', /json/)
-                .expect(500);
-
-            expect(response.body).toEqual({
-                error: 'Internal server error'
-            });
-        });
-
-        it('should handle validation errors from Zod', async () => {
-            const response = await request(app)
-                .post('/api/mortgage/validate-down-payment')
-                .send({
-                    propertyPrice: -500000,
-                    downPayment: 50000,
-                    employmentType: 'regular'
-                })
-                .expect('Content-Type', /json/)
-                .expect(400);
-
-            expect(response.body).toHaveProperty('errors');
-            expect(response.body.errors[0]).toHaveProperty('message');
-            expect(response.body.errors[0]).toHaveProperty('field');
-        });
-
-        it('should handle self-employed validation', async () => {
-            (validateDownPayment as jest.Mock).mockImplementation(() => {
-                throw new Error('Self-employed with non-verified income requires minimum 10% down payment');
-            });
-
-            const response = await request(app)
-                .post('/api/mortgage/validate-down-payment')
-                .send({
-                    propertyPrice: 500000,
-                    downPayment: 40000,
-                    employmentType: 'self-employed-non-verified'
-                })
-                .expect('Content-Type', /json/)
-                .expect(500);
-
-            expect(response.body).toEqual({
-                error: 'Internal server error'
             });
         });
     });
@@ -200,10 +108,44 @@ describe('Mortgage Routes', () => {
             expect(response.body).toEqual(acceleratedResult);
         });
 
+        test('should handle calculation with bi-weekly payments', async () => {
+            const biweeklyPayload = {
+                ...validPayload,
+                paymentSchedule: 'biweekly'
+            };
+
+            const biweeklyResult = {
+                ...mockCalculationResult,
+                paymentAmount: 1438.13
+            };
+
+            (calculateMortgageController as jest.Mock).mockReturnValue(biweeklyResult);
+
+            const response = await request(app)
+                .post('/api/mortgage/calculate')
+                .send(biweeklyPayload)
+                .expect('Content-Type', /json/)
+                .expect(200);
+
+            expect(response.body).toEqual(biweeklyResult);
+        });
+
+        test('should handle missing required fields', async () => {
+            const response = await request(app)
+                .post('/api/mortgage/calculate')
+                .send({ propertyPrice: 500000 })
+                .expect('Content-Type', /json/)
+                .expect(400);
+
+            expect(response.body).toEqual({
+                errors: expect.any(Array)
+            });
+        })
+
         test('should handle validation errors', async () => {
             const invalidPayload = {
                 ...validPayload,
-                annualInterestRate: -5.99
+                annualInterestRate: -5.99,
             };
 
             const response = await request(app)
@@ -214,6 +156,46 @@ describe('Mortgage Routes', () => {
 
             expect(response.body).toHaveProperty('errors');
             expect(Array.isArray(response.body.errors)).toBe(true);
+        });
+
+        test('should handle insufficient downpayment case', async () => {
+            (calculateMortgageController as jest.Mock).mockImplementation(() => {
+                throw new Error('Self-employed with non-verified income requires minimum 10% down payment');
+            });
+
+            const response = await request(app)
+                .post('/api/mortgage/calculate')
+                .send({
+                    ...validPayload,
+                    downPayment: 40000,
+                    employmentType: 'self-employed-non-verified'
+                })
+                .expect('Content-Type', /json/)
+                .expect(400);
+
+            expect(response.body).toEqual({
+                errors: 'Self-employed with non-verified income requires minimum 10% down payment'
+            });
+        });
+
+        test('should handle insufficient downpayment for property over $15,000,000', async () => {
+            const testPayload = {
+                ...validPayload,
+                propertyPrice: 1600000,
+                downPayment: 200000,
+                employmentType: 'regular'
+            };
+            
+            console.log('Test payload:', testPayload);
+            
+            const response = await request(app)
+                .post('/api/mortgage/calculate')
+                .send(testPayload)
+                .expect('Content-Type', /json/)
+                .expect(400);
+        
+            console.log('Response body:', response.body);
+            console.log('Response status:', response.status);
         });
     });
 });
