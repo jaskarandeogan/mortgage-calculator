@@ -50,6 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>$${data.paymentAmount.toFixed(2)}</span>
             </div>
             <div class="result-item">
+                <span>Payment Schedule:</span>
+                <span>${data.paymentSchedule}</span>
+            </div>
+            <div class="result-item">
                 <span>CMHC Insurance:</span>
                 <span>$${data.cmhcInsurance.toFixed(2)}</span>
             </div>
