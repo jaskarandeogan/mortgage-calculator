@@ -18,6 +18,7 @@ export const calculateMortgageController = async (validatedData: MortgageInput):
   status: 'success' | 'error';
   data?: {
     paymentAmount: number;
+    paymentSchedule: string;
     cmhcInsurance: number;
     totalMortgage: number;
     mortgageBeforeCMHC: number;
@@ -45,11 +46,12 @@ export const calculateMortgageController = async (validatedData: MortgageInput):
     status: 'success',
     data: {
       paymentAmount: result.paymentAmount,
+      paymentSchedule: validatedData.paymentSchedule,
       cmhcInsurance: result.cmhcInsurance,
       totalMortgage: result.totalMortgage,
       mortgageBeforeCMHC: result.mortgageBeforeCMHC,
       downPaymentPercentage: result.downPaymentPercentage,
-      cmhcPremiumRate: result.cmhcPremiumRate
+      cmhcPremiumRate: result.cmhcPremiumRate,
     },
     message: 'Mortgage calculated successfully'
   };
